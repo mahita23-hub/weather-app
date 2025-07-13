@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .weather-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .weather-icon {
+            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #6b73ff 0%, #00d5ff 100%);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+    <div class="gradient-bg text-white">
+        <div class="container mx-auto px-4 py-8">
+            <header class="flex flex-col items-center mb-8">
+                <h1 class="text-4xl font-bold mb-2">Weather Forecast</h1>
+                <p class="text-xl opacity-90">Get accurate weather information for any location</p>
+            </header>
+            
+            <div class="max-w-md mx-auto mb-12">
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="Search for a city..." 
+                        class="w-full py-3 px-6 rounded-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg"
+                    >
+                    <button 
+                        id="search-btn" 
+                        class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-colors"
+                    >
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div id="error-message" class="text-red-300 mt-2 text-center hidden"></div>
+            </div>
+            
+            <div id="current-weather" class="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 max-w-3xl mx-auto shadow-xl hidden fade-in">
+                <div class="flex flex-col md:flex-row items-center justify-between">
+                    <div class="text-center md:text-left mb-4 md:mb-0">
+                        <h2 id="location" class="text-3xl font-bold mb-1"></h2>
+                        <p id="date" class="text-lg opacity-90 mb-4"></p>
+                        <div class="flex items-center justify-center md:justify-start">
+                            <img id="current-icon" src="" alt="Weather icon" class="weather-icon w-16 h-16 mr-3">
+                            <span id="current-temp" class="text-5xl font-bold"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-center md:text-right">
+                        <div>
+                            <p class="text-sm opacity-80">Feels Like</p>
+                            <p id="feels-like" class="text-xl font-semibold"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm opacity-80">Humidity</p>
+                            <p id="humidity" class="text-xl font-semibold"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm opacity-80">Wind Speed</p>
+                            <p id="wind-speed" class="text-xl font-semibold"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm opacity-80">Pressure</p>
+                            <p id="pressure" class="text-xl font-semibold"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container mx-auto px-4 py-12">
+        <h2 class="text-2xl font-bold mb-8 text-center text-gray-800">5-Day Forecast</h2>
+        
+        <div id="forecast-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 hidden">
+            <!-- Forecast cards will be inserted here by JavaScript -->
+        </div>
+        
+        <div id="loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <p class="text-gray-600">Loading weather data...</p>
+        </div>
+    </div>
+    
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-4 text-center">
+            <p>© 2023 Weather Forecast App. Data provided by <a href="https://openweathermap.org/" class="text-blue-300 hover:underline" target="_blank">OpenWeatherMap</a></p>
+            <div class="flex justify-center space-x-4 mt-4">
+                <a href="#" class="hover:text-blue-300"><i class="fab fa-twitter"></i></a>
+                <a href="#" class="hover:text-blue-300"><i class="fab fa-facebook"></i></a>
+                <a href="#" class="hover:text-blue-300"><i class="fab fa-instagram"></i></a>
+                <a href="#" class="hover:text-blue-300"><i class="fab fa-github"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // API Key - In a real app, this should be secured on the backend
+        const API_KEY = '63bd56df1e2a969834df09e93d8623a3'; // Replace with your actual API key
+        
+        // DOM Elements
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+        const currentWeather = document.getElementById('current-weather');
+        const forecastContainer = document.getElementById('forecast-container');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('error-message');
+        
+        // Default location
+        let currentLocation = 'London';
+        
+        // Event Listeners
+        searchBtn.addEventListener('click', () => {
+            if (searchInput.value.trim() !== '') {
+                currentLocation = searchInput.value.trim();
+                getWeatherData();
+            }
+        });
+        
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && searchInput.value.trim() !== '') {
+                currentLocation = searchInput.value.trim();
+                getWeatherData();
+            }
+        });
+        
+        // Initialize with default location
+        window.addEventListener('load', () => {
+            getWeatherData();
+        });
+        
+        // Get weather data from API
+        async function getWeatherData() {
+            try {
+                // Show loading and hide previous data
+                loading.classList.remove('hidden');
+                currentWeather.classList.add('hidden');
+                forecastContainer.classList.add('hidden');
+                errorMessage.classList.add('hidden');
+                
+                // Fetch current weather
+                const currentResponse = await fetch(
+                    `https://api.openweathermap.org/data/2.5/weather?q=${currentLocation}&units=metric&appid=${API_KEY}`
+                );
+                
+                if (!currentResponse.ok) {
+                    throw new Error('Location not found. Please try another city.');
+                }
+                
+                const currentData = await currentResponse.json();
+                
+                // Fetch forecast
+                const forecastResponse = await fetch(
+                    `https://api.openweathermap.org/data/2.5/forecast?q=${currentLocation}&units=metric&appid=${API_KEY}`
+                );
+                
+                if (!forecastResponse.ok) {
+                    throw new Error('Could not fetch forecast data.');
+                }
+                
+                const forecastData = await forecastResponse.json();
+                
+                // Display the data
+                displayCurrentWeather(currentData);
+                displayForecast(forecastData);
+                
+                // Hide loading and show data
+                loading.classList.add('hidden');
+                currentWeather.classList.remove('hidden');
+                forecastContainer.classList.remove('hidden');
+                
+            } catch (error) {
+                loading.classList.add('hidden');
+                errorMessage.textContent = error.message;
+                errorMessage.classList.remove('hidden');
+                console.error('Error fetching weather data:', error);
+            }
+        }
+        
+        // Display current weather
+        function displayCurrentWeather(data) {
+            const location = document.getElementById('location');
+            const date = document.getElementById('date');
+            const currentTemp = document.getElementById('current-temp');
+            const currentIcon = document.getElementById('current-icon');
+            const feelsLike = document.getElementById('feels-like');
+            const humidity = document.getElementById('humidity');
+            const windSpeed = document.getElementById('wind-speed');
+            const pressure = document.getElementById('pressure');
+            
+            location.textContent = `${data.name}, ${data.sys.country}`;
+            
+            const now = new Date();
+            date.textContent = now.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            currentTemp.textContent = `${Math.round(data.main.temp)}°C`;
+            currentIcon.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+            currentIcon.alt = data.weather[0].description;
+            
+            feelsLike.textContent = `${Math.round(data.main.feels_like)}°C`;
+            humidity.textContent = `${data.main.humidity}%`;
+            windSpeed.textContent = `${(data.wind.speed * 3.6).toFixed(1)} km/h`;
+            pressure.textContent = `${data.main.pressure} hPa`;
+        }
+        
+        // Display 5-day forecast
+        function displayForecast(data) {
+            forecastContainer.innerHTML = '';
+            
+            // Filter to get one forecast per day (at 12:00 PM for consistency)
+            const dailyForecasts = data.list.filter(forecast => {
+                return forecast.dt_txt.includes('12:00:00');
+            }).slice(0, 5); // Get next 5 days
+            
+            dailyForecasts.forEach(forecast => {
+                const date = new Date(forecast.dt * 1000);
+                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                const dayNumber = date.getDate();
+                
+                const card = document.createElement('div');
+                card.className = 'weather-card bg-white rounded-xl p-4 shadow-md transition-all duration-300 text-center';
+                card.innerHTML = `
+                    <h3 class="text-lg font-semibold mb-2">${dayName} <span class="text-gray-600">${dayNumber}</span></h3>
+                    <img src="https://openweathermap.org/img/wn/${forecast.weather[0].icon}@2x.png" 
+                         alt="${forecast.weather[0].description}" 
+                         class="weather-icon w-16 h-16 mx-auto mb-3">
+                    <p class="text-gray-600 capitalize mb-1">${forecast.weather[0].description}</p>
+                    <div class="flex justify-center space-x-4 mt-3">
+                        <div>
+                            <p class="text-sm text-gray-500">High</p>
+                            <p class="font-bold">${Math.round(forecast.main.temp_max)}°C</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Low</p>
+                            <p class="font-bold">${Math.round(forecast.main.temp_min)}°C</p>
+                        </div>
+                    </div>
+                `;
+                
+                forecastContainer.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
